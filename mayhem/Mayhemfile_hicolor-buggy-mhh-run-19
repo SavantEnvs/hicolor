@@ -1,0 +1,23 @@
+project: savantenvs/hicolor
+# Target name preserved from the original mayhemheroes integration (which ran
+# `/hicolor/hicolor encode /test.png`) so Mayhem run history stays continuous.
+target: hicolor-buggy-mhh-run-19
+# origin: https://app.mayhem.security/mayhemheroes/hicolor/hicolor/19
+
+# File-input (CLI) target: feed the fuzz bytes as a PNG to hicolor's `encode` command — the tiny
+# 15/16-bit-color HiColor encoder (cli.c + the single-header hicolor.h library). `encode` runs
+# libpng's PNG reader over the input, then hicolor's own quantizer + HiColor header/data writer over
+# the decoded pixels — the whole encode surface on one file. Not libFuzzer: the natural fuzz surface
+# is the CLI binary on a file (like lacc). @@ is the input-file placeholder.
+#
+# Output goes to /dev/null so the encoder runs to completion (parse + quantize + write) without
+# leaving artifacts; the SECOND positional arg is the destination, so `encode @@ /dev/null` encodes
+# the fuzzed PNG and discards the .hic result. A valid PNG => exit 0 (passing seed); the bytes are
+# fully parsed and quantized.
+cmds:
+  # Mayhem's default per-exec timeout (2s) is too tight for this ASan+UBSan-instrumented binary
+  # under Mayhem's own tracing overhead: the sanity check on a trivial 1-byte input times out even
+  # though the same input crashes in well under a second untraced. Generous per-exec timeout per
+  # PORTING.md (Mayhem owns timeouts, not the harness).
+  - cmd: /mayhem/hicolor encode @@ /dev/null
+    timeout: 15
